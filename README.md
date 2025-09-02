@@ -1,4 +1,4 @@
-| # A Comparative Framework for Modern Blind Signature Schemes
+# A Comparative Framework for Modern Blind Signature Schemes
  This repository contains the complete implementation and benchmarking framework for the dissertation "A Comparative Analysis of Modern Blind Signature Schemes: Implementation, Security, and Performance". It provides a unified Python library for evaluating three distinct families of modern blind signatures, each representing a different point on the security-performance-architecture spectrum.
  The primary contribution of this work is a fair, "apples-to-apples" comparison enabled by a unified API and a pluggable backend system for zero-knowledge proofs.
  ## Table of Contents
