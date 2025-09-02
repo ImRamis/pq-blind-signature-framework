@@ -1,0 +1,107 @@
+{
+    "witness_analysis": {
+        "snarkjs": {
+            "fischlin_witness_cost": [
+                [
+                    128,
+                    885.2671399974497
+                ],
+                [
+                    256,
+                    879.9658200005069
+                ],
+                [
+                    512,
+                    879.49625000183
+                ],
+                [
+                    1024,
+                    908.9379899975029
+                ],
+                [
+                    2048,
+                    901.6009099999792
+                ]
+            ]
+        },
+        "sonic-ucse": {
+            "fischlin_witness_cost": [
+                [
+                    128,
+                    7950.432029996591
+                ],
+                [
+                    256,
+                    7476.59774999629
+                ],
+                [
+                    512,
+                    7440.614000002097
+                ],
+                [
+                    1024,
+                    7599.761170001875
+                ],
+                [
+                    2048,
+                    7650.987319998967
+                ]
+            ]
+        }
+    },
+    "Practical": {
+        "keygen_time": 7.4764000019058585,
+        "user_cost": 15.995249999687076,
+        "signer_cost": 22.460630000859965,
+        "verify": 26.33162000012817,
+        "sig_size": 1896.52,
+        "comm": 2237.46,
+        "throughput": 44.52234865904084,
+        "batch_verify_time": 2633.162000012817,
+        "batch_size": 100
+    },
+    "Hanzlik": {
+        "keygen_time": 60.87459999253042,
+        "user_cost": 2135.6358459970215,
+        "signer_cost": 65.14244799938751,
+        "verify": 2062.721842000319,
+        "sig_size": 1412.7,
+        "comm": 1412.86,
+        "throughput": 15.35097360801366,
+        "batch_verify_time": 206272.18420003192,
+        "batch_size": 100
+    },
+    "Hanzlik (Tagged)": {
+        "keygen_time": 75.80089999828488,
+        "user_cost": 3035.7878999991226,
+        "signer_cost": 126.5173799986951,
+        "verify": 2932.8464119989076,
+        "sig_size": 2120.52,
+        "comm": 2120.92,
+        "throughput": 7.90405239193472,
+        "batch_verify_time": 293284.64119989076,
+        "batch_size": 100
+    },
+    "Fischlin (SNARK.js - GROTH16)": {
+        "keygen_time": 88.25169999909122,
+        "user_cost": 889.408790000889,
+        "signer_cost": 509.89382199943066,
+        "verify": 178.28984200052219,
+        "sig_size": 246.66,
+        "comm": 4281.86,
+        "throughput": 1.9611926186489794,
+        "batch_verify_time": 17828.98420005222,
+        "batch_size": 100
+    },
+    "Fischlin (Rust HTTP - bb-lamassu)": {
+        "keygen_time": 90.67849999701139,
+        "user_cost": 7612.964570001932,
+        "signer_cost": 528.8308460006374,
+        "verify": 178.11198799900012,
+        "sig_size": 246.28,
+        "comm": 2555.02,
+        "throughput": 1.8909638262643906,
+        "batch_verify_time": 17811.198799900012,
+        "batch_size": 100
+    }
+}

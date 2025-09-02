@@ -1,0 +1,316 @@
+extern crate bellman;
+extern crate pairing;
+extern crate rand;
+extern crate sapling_crypto;
+extern crate sonic_ucse;
+
+use pairing::PrimeField;
+use sonic_ucse::circuits::adaptor::AdaptorCircuit;
+use sonic_ucse::circuits::{
+    pedersen::BBLamassuPedersenHashPreimageCircuit, sha256::BBLamassuSHA256PreimageCircuit,
+};
+use sonic_ucse::protocol::*;
+use sonic_ucse::srs::SRS;
+use sonic_ucse::synthesis::*;
+use sonic_ucse::{parse_config, usage};
+
+fn main() {
+    use pairing::bls12_381::{Bls12, Fr};
+    use std::fs::OpenOptions;
+    use std::io::prelude::*;
+    use std::path::Path;
+    use std::time::Instant;
+    use std::{env, process};
+
+    /***** Process command-line arguments *****/
+    let args: Vec<String> = env::args().collect();
+    let (circuit_name, preimage_bits, samples) = parse_config(&args).unwrap_or_else(|err| {
+        eprintln!("Problem parsing arguments: {err}");
+        usage();
+        process::exit(1);
+    });
+
+    /***** Open the benchmark file *****/
+    let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .create(true)
+        .open("bench.txt")
+        .unwrap_or_else(|err| {
+            eprintln!("Problem opening benchmarking file: {err}");
+            process::exit(1);
+        });
+    writeln!(
+        file,
+        "BB-Lamassu (WITH FILE I/O) for {} with preimage size {} over {} iterations\n{}",
+        circuit_name,
+        preimage_bits,
+        samples,
+        "--------------------------------------------------------------"
+    )
+    .unwrap_or_else(|err| {
+        eprintln!("Problem writing to benchmarking file: {err}");
+        process::exit(1);
+    });
+
+    /***** Begin benchmarking *****/
+    {
+        let srs_x = Fr::from_str("23923").unwrap();
+        let srs_alpha = Fr::from_str("23728792").unwrap();
+        let srs_path = Path::new("srs_io_test.bin");
+
+        println!("--- I/O Test: Simulating CLI Behavior ---");
+
+        // --- 1. Generate and Write SRS to File ---
+        println!("[I/O] Making in-memory SRS...");
+        let d = {
+            if preimage_bits == 512 {
+                1024352
+            } else if preimage_bits == 1024 {
+                1595852
+            } else if preimage_bits == 2048 {
+                1595852 * 2
+            } else {
+                830564
+            }
+        };
+        let start_gen = Instant::now();
+        let srs_to_write = SRS::<Bls12>::dummy(d, srs_x, srs_alpha);
+        println!("[TIMING] SRS generated in memory in {:?}", start_gen.elapsed());
+
+        println!("[I/O] Writing SRS to disk at {:?}...", srs_path);
+        let start_write = Instant::now();
+        srs_to_write.write_to_file(&srs_path.to_path_buf()).unwrap();
+        println!("[TIMING] SRS written to disk in {:?}", start_write.elapsed());
+
+        // --- 2. Read SRS from File ---
+        println!("[I/O] Reading SRS from disk...");
+        let start_read = Instant::now();
+        let srs = SRS::<Bls12>::read_from_file(&srs_path.to_path_buf()).unwrap();
+        println!("[TIMING] SRS read from disk in {:?}", start_read.elapsed());
+        println!("-------------------------------------------");
+
+
+        type ChosenBackend = Permutation3;
+        let params = sapling_crypto::jubjub::JubjubBls12::new();
+
+        if circuit_name == "pedersen" {
+            let preimage_opt = vec![Some(true); preimage_bits];
+            let circuit = BBLamassuPedersenHashPreimageCircuit::new_from_witness(
+                &srs,
+                &params,
+                preimage_opt,
+            );
+
+            println!("creating {} proofs", samples);
+            let start = Instant::now();
+            let proof =
+                create_proof::<Bls12, _, ChosenBackend>(&AdaptorCircuit(circuit.clone()), &srs)
+                    .unwrap();
+            for _ in 1..samples {
+                let _ =
+                    create_proof::<Bls12, _, ChosenBackend>(&AdaptorCircuit(circuit.clone()), &srs)
+                        .unwrap();
+            }
+            let proof_time = start.elapsed();
+            println!("done in {:?}", proof_time);
+            let proof_avg = proof_time / (samples as u32);
+            println!("average time per proof: {:?}", proof_avg);
+            writeln!(file, "proof:\t\t\t{:?}", proof_avg).unwrap_or_else(|err| {
+                eprintln!("Problem writing to proof avg to file: {err}");
+                process::exit(1);
+            });
+
+            println!("creating advice");
+            let start = Instant::now();
+            let advice = create_advice::<Bls12, _, ChosenBackend>(
+                &AdaptorCircuit(circuit.clone()),
+                &proof.pi,
+                &srs,
+            );
+            println!("done in {:?}", start.elapsed());
+
+            println!("creating aggregate for {} proofs", samples);
+            let start = Instant::now();
+            let proofs: Vec<_> = (0..samples)
+                .map(|_| (proof.pi.clone(), advice.clone()))
+                .collect();
+            let aggregate = create_aggregate::<Bls12, _, ChosenBackend>(
+                &AdaptorCircuit(circuit.clone()),
+                proofs.as_slice(),
+                &srs,
+            );
+            println!("done in {:?}", start.elapsed());
+
+            {
+                let mut verifier =
+                    MultiVerifier::<Bls12, _, ChosenBackend>::new(AdaptorCircuit(circuit.clone()), &srs)
+                        .unwrap();
+                println!("verifying 1 proof without advice");
+                let start = Instant::now();
+                verifier.add_proof(&proof, &[], |_, _| None);
+                assert!(verifier.check_all());
+                println!("done in {:?}", start.elapsed());
+            }
+
+            let verify_avg = {
+                let mut verifier =
+                    MultiVerifier::<Bls12, _, ChosenBackend>::new(AdaptorCircuit(circuit.clone()), &srs)
+                        .unwrap();
+                println!("verifying {} proofs without advice", samples);
+                let start = Instant::now();
+                for _ in 0..samples {
+                    verifier.add_proof(&proof, &[], |_, _| None);
+                }
+                assert!(verifier.check_all());
+                let verify_time = start.elapsed();
+                println!("done in {:?}", verify_time);
+                let verify_avg = verify_time / samples as u32;
+                println!("average time per proof: {:?}", verify_avg);
+                verify_avg
+            };
+            writeln!(file, "verify:\t\t{:?}", verify_avg).unwrap_or_else(|err| {
+                eprintln!("Problem writing to verify avg to file: {err}");
+                process::exit(1);
+            });
+
+            if samples > 1 {
+                let helped_verify_margin = {
+                    let mut verifier = MultiVerifier::<Bls12, _, ChosenBackend>::new(
+                        AdaptorCircuit(circuit.clone()),
+                        &srs,
+                    )
+                    .unwrap();
+                    println!("verifying {} proofs with advice", samples);
+                    let start = Instant::now();
+                    for (ref proof, ref advice) in &proofs {
+                        verifier.add_underlying_proof_with_advice(proof, &[], advice);
+                    }
+                    verifier.add_aggregate(proofs.as_slice(), &aggregate);
+                    assert!(verifier.check_all());
+                    let verify_advice_time = start.elapsed();
+                    println!("done in {:?}", verify_advice_time);
+                    
+                    let helped_verify_margin = verify_advice_time
+                        .checked_sub(verify_avg)
+                        .map(|diff| diff / (samples - 1) as u32)
+                        .unwrap_or_default();
+
+                    println!(
+                        "marginal cost of helped verifier: {:?}",
+                        helped_verify_margin
+                    );
+                    helped_verify_margin
+                };
+                writeln!(file, "helped verify:\t{:?}", helped_verify_margin).unwrap_or_else(|err| {
+                    eprintln!("Problem writing to helped verify margin to file: {err}");
+                    process::exit(1);
+                });
+            }
+        } else if circuit_name == "sha256" {
+            let preimage_opt = vec![Some(true); preimage_bits];
+            let circuit = BBLamassuSHA256PreimageCircuit::new_from_witness(
+                &srs,
+                &params,
+                preimage_opt,
+            );
+
+            println!("creating {} proofs", samples);
+            let start = Instant::now();
+            let proof =
+                create_proof::<Bls12, _, ChosenBackend>(&AdaptorCircuit(circuit.clone()), &srs)
+                    .unwrap();
+            for _ in 1..samples {
+                let _ =
+                    create_proof::<Bls12, _, ChosenBackend>(&AdaptorCircuit(circuit.clone()), &srs)
+                        .unwrap();
+            }
+            let proof_time = start.elapsed();
+            println!("done in {:?}", proof_time);
+            let proof_avg = proof_time / samples as u32;
+            println!("average time per proof: {:?}", proof_avg);
+            writeln!(file, "proof:\t\t\t{:?}", proof_avg).unwrap_or_else(|err| {
+                eprintln!("Problem writing to proof avg to file: {err}");
+                process::exit(1);
+            });
+
+            println!("creating advice");
+            let start = Instant::now();
+            let advice = create_advice::<Bls12, _, ChosenBackend>(
+                &AdaptorCircuit(circuit.clone()),
+                &proof.pi,
+                &srs,
+            );
+            println!("done in {:?}", start.elapsed());
+
+            println!("creating aggregate for {} proofs", samples);
+            let start = Instant::now();
+            let proofs: Vec<_> = (0..samples)
+                .map(|_| (proof.pi.clone(), advice.clone()))
+                .collect();
+            let aggregate = create_aggregate::<Bls12, _, ChosenBackend>(
+                &AdaptorCircuit(circuit.clone()),
+                proofs.as_slice(),
+                &srs,
+            );
+            println!("done in {:?}", start.elapsed());
+
+            let verify_avg = {
+                let mut verifier =
+                    MultiVerifier::<Bls12, _, ChosenBackend>::new(AdaptorCircuit(circuit.clone()), &srs)
+                        .unwrap();
+                println!("verifying {} proofs without advice", samples);
+                let start = Instant::now();
+                for _ in 0..samples {
+                    verifier.add_proof(&proof, &[], |_, _| None);
+                }
+                let _verif = verifier.check_all();
+                let verify_time = start.elapsed();
+                println!("done in {:?}", verify_time);
+                let verify_avg = verify_time / samples as u32;
+                println!("average time per proof: {:?}", verify_avg);
+                verify_avg
+            };
+            writeln!(file, "verify:\t\t{:?}", verify_avg).unwrap_or_else(|err| {
+                eprintln!("Problem writing to verify avg to file: {err}");
+                process::exit(1);
+            });
+
+            if samples > 1 {
+                let helped_verify_margin = {
+                    let mut verifier = MultiVerifier::<Bls12, _, ChosenBackend>::new(
+                        AdaptorCircuit(circuit.clone()),
+                        &srs,
+                    )
+                    .unwrap();
+                    println!("verifying {} proofs with advice", samples);
+                    let start = Instant::now();
+                    for (ref proof, ref advice) in &proofs {
+                        verifier.add_underlying_proof_with_advice(proof, &[], advice);
+                    }
+                    verifier.add_aggregate(proofs.as_slice(), &aggregate);
+                    let _verif = verifier.check_all();
+                    let verify_advice_time = start.elapsed();
+                    println!("done in {:?}", verify_advice_time);
+                    
+                    let helped_verify_margin = verify_advice_time
+                        .checked_sub(verify_avg)
+                        .map(|diff| diff / (samples - 1) as u32)
+                        .unwrap_or_default();
+
+                    println!(
+                        "marginal cost of helped verifier: {:?}",
+                        helped_verify_margin
+                    );
+                    helped_verify_margin
+                };
+                writeln!(file, "helped verify:\t{:?}", helped_verify_margin).unwrap_or_else(|err| {
+                    eprintln!("Problem writing to helped verify margin to file: {err}");
+                    process::exit(1);
+                });
+            }
+        } else {
+            unreachable!("circuit_name should always be either pedersen or sha256");
+        }
+    }
+}

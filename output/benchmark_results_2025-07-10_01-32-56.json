@@ -1,0 +1,70 @@
+{
+    "Fischlin": {
+        "keygen_time": 100.38009999698261,
+        "user_cost": 8074.823236000229,
+        "signer_cost": 579.8057019991393,
+        "verify": 186.6349259998242,
+        "sig_size": 246.68,
+        "comm": 2555.54,
+        "throughput": 1.7247157048508717,
+        "batch_verify_time": 18663.49259998242,
+        "batch_size": 100
+    },
+    "Practical": {
+        "keygen_time": 8.235299996158574,
+        "user_cost": 17.22676400007913,
+        "signer_cost": 24.104249999509193,
+        "verify": 28.383867999509675,
+        "sig_size": 1897.12,
+        "comm": 2238.44,
+        "throughput": 41.486459857509026,
+        "batch_verify_time": 2838.3867999509675,
+        "batch_size": 100
+    },
+    "Hanzlik": {
+        "keygen_time": 67.94259999878705,
+        "user_cost": 2248.6137319993577,
+        "signer_cost": 68.70632200094406,
+        "verify": 2168.7951820004673,
+        "sig_size": 1413.12,
+        "comm": 1412.82,
+        "throughput": 14.554701385212551,
+        "batch_verify_time": 216879.51820004673,
+        "batch_size": 100
+    },
+    "Hanzlik (Tagged)": {
+        "keygen_time": 63.720600002852734,
+        "user_cost": 3172.0736540012877,
+        "signer_cost": 132.28884000025573,
+        "verify": 3068.236726000905,
+        "sig_size": 2120.7,
+        "comm": 2120.72,
+        "throughput": 7.5592166353417785,
+        "batch_verify_time": 306823.6726000905,
+        "batch_size": 100
+    },
+    "witness_analysis": {
+        "fischlin_witness_cost": [
+            [
+                128,
+                7763.522589999775
+            ],
+            [
+                256,
+                7657.190740000078
+            ],
+            [
+                512,
+                7673.878750001313
+            ],
+            [
+                1024,
+                7664.516960000765
+            ],
+            [
+                2048,
+                7623.956549998547
+            ]
+        ]
+    }
+}

@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blind-signatures-comparators"
+version = "1.0.0"
+authors = [
+  { name="Muhammad Ramis", email="mr.iramis@outlook.com" },
+]
+description = "A demonstrating and comparing Fischlin, Klooß-Reichle-Wagner, and Hanzlik blind signature schemes."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file="LICENSE.txt" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Security :: Cryptography",
+]
+
+# Define the project's dependencies
+dependencies = [
+    "pycryptodome>=3.19.0",
+    "py_ecc>=6.0.0",
+    "ecdsa>=0.18.0",
+    "python-dotenv>=1.0.0",
+]
+
+# Optional dependencies for running examples and benchmarks
+[project.optional-dependencies]
+examples = [
+    "Flask>=2.0.0",
+    "requests>=2.25.0",
+]
+benchmarks = [
+    "matplotlib>=3.0.0",
+    "numpy>=1.24.0",
+]
+dev = ["pytest>=7.4.0"]
+
+[project.urls]
+"Homepage" = "https://github.com/imramis/blind-signatures-comparisons"
+"Bug Tracker" = "https://github.com/imramis/blind-signatures-comparisons/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]

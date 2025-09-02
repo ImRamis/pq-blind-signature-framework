@@ -1,0 +1,14 @@
+/target
+**/*.rs.bk
+Cargo.lock
+
+*.bak
+
+# benchmarks
+bench.txt
+bench/benchmarks.jpg
+bench/benchmarks.png
+.ipynb_checkpoints
+bench-ccs23/
+
+.DS_Store

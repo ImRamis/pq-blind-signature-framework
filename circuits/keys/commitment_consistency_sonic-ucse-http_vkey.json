@@ -1,0 +1,6 @@
+{
+  "protocol": "sonic-ucse-http",
+  "srs_id": "c55198f4-a62a-4df3-8182-2f9326355bc2",
+  "host": "127.0.0.1",
+  "port": 4000
+}
